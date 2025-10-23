@@ -1,0 +1,38 @@
+2025-10-22 23:13:41 [INFO] [MainThread] pipeline - [MAIN] Starting with 2 phyla
+2025-10-22 23:13:43 [INFO] [MainThread] pipeline - name_report | query=Glaucophyta tax_id=38254 rank=CLASS
+2025-10-22 23:13:43 [INFO] [MainThread] pipeline - related_ids_done | root=38254 rank=CLASS total=1
+2025-10-22 23:13:44 [INFO] [MainThread] pipeline - name_report_done | count=1
+2025-10-22 23:13:44 [INFO] [ThreadPoolExecutor-0_0] pipeline - related_ids_done | root=38254 rank=SPECIES total=24
+2025-10-22 23:13:44 [INFO] [ThreadPoolExecutor-0_0] pipeline - name_report_done | count=5
+2025-10-22 23:13:44 [INFO] [MainThread] pipeline - phylum_done | phylum=Glaucophyta rows=0
+2025-10-22 23:13:44 [INFO] [MainThread] pipeline - [MAIN] Glaucophyta: 0 filas
+2025-10-22 23:13:44 [INFO] [MainThread] pipeline - name_report | query=Rhodophyta tax_id=2763 rank=PHYLUM
+2025-10-22 23:13:44 [INFO] [MainThread] pipeline - related_ids_done | root=2763 rank=CLASS total=5
+2025-10-22 23:13:45 [INFO] [MainThread] pipeline - name_report_done | count=5
+2025-10-22 23:13:45 [INFO] [ThreadPoolExecutor-2_0] pipeline - related_ids_done | root=2797 rank=SPECIES total=542
+2025-10-22 23:13:45 [INFO] [ThreadPoolExecutor-2_0] pipeline - name_report_done | count=5
+2025-10-22 23:13:46 [INFO] [ThreadPoolExecutor-2_2] pipeline - related_ids_done | root=446134 rank=SPECIES total=29
+2025-10-22 23:13:46 [INFO] [ThreadPoolExecutor-2_3] pipeline - related_ids_done | root=661027 rank=SPECIES total=14
+2025-10-22 23:13:46 [INFO] [ThreadPoolExecutor-2_3] pipeline - name_report_done | count=5
+2025-10-22 23:13:46 [INFO] [ThreadPoolExecutor-2_2] pipeline - name_report_done | count=5
+2025-10-22 23:13:47 [INFO] [ThreadPoolExecutor-3_0] pipeline - genome_reports | tax_id=1094582 count=0
+2025-10-22 23:13:47 [WARNING] [ThreadPoolExecutor-2_0] pipeline - species_no_accepted | class_name=Bangiophyceae species=Clymene coleana audit={'accepted': [], 'rejected': []}
+2025-10-22 23:13:48 [INFO] [ThreadPoolExecutor-5_1] pipeline - genome_reports | tax_id=468934 count=0
+2025-10-22 23:13:48 [WARNING] [ThreadPoolExecutor-2_2] pipeline - species_no_accepted | class_name=Stylonematophyceae species=Rhodosorus magnei audit={'accepted': [], 'rejected': []}
+2025-10-22 23:13:48 [INFO] [ThreadPoolExecutor-2_0] pipeline - related_ids_done | root=930023 rank=SPECIES total=59
+2025-10-22 23:13:48 [INFO] [ThreadPoolExecutor-2_0] pipeline - name_report_done | count=5
+2025-10-22 23:13:48 [INFO] [ThreadPoolExecutor-6_0] pipeline - genome_reports | tax_id=1076273 count=0
+2025-10-22 23:13:48 [WARNING] [ThreadPoolExecutor-2_0] pipeline - species_no_accepted | class_name=Compsopogonophyceae species=Porphyrostromium ligulatum audit={'accepted': [], 'rejected': []}
+2025-10-22 23:13:48 [INFO] [ThreadPoolExecutor-6_1] pipeline - genome_reports | tax_id=362236 count=0
+2025-10-22 23:13:48 [WARNING] [ThreadPoolExecutor-2_0] pipeline - species_no_accepted | class_name=Compsopogonophyceae species=Erythrocladia irregularis audit={'accepted': [], 'rejected': []}
+2025-10-22 23:13:51 [INFO] [ThreadPoolExecutor-4_0] pipeline - genome_reports | tax_id=700918 count=0
+2025-10-22 23:13:51 [INFO] [ThreadPoolExecutor-5_0] pipeline - genome_reports | tax_id=362233 count=0
+2025-10-22 23:13:51 [WARNING] [ThreadPoolExecutor-2_3] pipeline - species_no_accepted | class_name=Rhodellophyceae species=Corynoplastis japonica audit={'accepted': [], 'rejected': []}
+2025-10-22 23:13:51 [WARNING] [ThreadPoolExecutor-2_2] pipeline - species_no_accepted | class_name=Stylonematophyceae species=Rufusia pilicola audit={'accepted': [], 'rejected': []}
+2025-10-22 23:13:54 [INFO] [ThreadPoolExecutor-2_1] pipeline - related_ids_done | root=2806 rank=SPECIES total=8164
+2025-10-22 23:13:55 [INFO] [ThreadPoolExecutor-2_1] pipeline - name_report_done | count=5
+2025-10-22 23:13:55 [INFO] [MainThread] pipeline - phylum_done | phylum=Rhodophyta rows=0
+2025-10-22 23:13:55 [INFO] [MainThread] pipeline - [MAIN] Rhodophyta: 0 filas
+2025-10-22 23:13:55 [INFO] [MainThread] pipeline - [MAIN] CSV -> best_genomes_by_class.csv
+2025-10-22 23:13:55 [INFO] [MainThread] pipeline - [MAIN] Excel -> best_genomes_by_class.xlsx
+2025-10-22 23:13:55 [INFO] [MainThread] pipeline - [MAIN] Finished. Total rows=0 in 13.4s
