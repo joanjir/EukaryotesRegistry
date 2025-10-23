@@ -1,82 +1,51 @@
+# ==============================================
+# 🧬 EukaryotesRegistry - Git Ignore
+# ==============================================
 
-# --- Archivos generados automáticamente ---
+# Archivos temporales, logs y cachés
 *.log
-*.csv
-*.xlsx
 *.tmp
 *.bak
 *.swp
-*.DS_Store
-
-# --- Salidas del pipeline ---
-best_genomes_by_class.csv
-best_genomes_by_class.xlsx
-pipeline.log
-
-# --- Carpetas de resultados temporales ---
-/__pycache__/
-/.cache/
-/output/
-/results/
-/temp/
-/tmp/
-/backups/
-/test_data/
-/.venv/
-/env/
-/venv/
-
-# --- Entornos de ejecución y compilación ---
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
-.installed.cfg
 
-# --- Archivos locales y configuraciones de IDE ---
+# Entornos virtuales
+venv/
+.env/
+.venv/
+env/
+conda_env/
+*.conda
+
+# Datos de ejecución
+best_genomes_by_class.csv
+best_genomes_by_class.xlsx
+pipeline.log
+protein_download.log
+proteins_download/
+data/
+results/
+tmp/
+cache/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Configuraciones locales o de usuario
+*.code-workspace
 .vscode/
 .idea/
-*.code-workspace
+*.iml
 
-# --- Archivos de Jupyter / Notebooks ---
-.ipynb_checkpoints/
-*.ipynb
-
-# --- Datos externos o grandes ---
-/data/
-/downloads/
-/datasets/
-/checkpoints/
-/archives/
-/compressed/
+# Archivos comprimidos o exportados
 *.zip
-*.tar.gz
-*.tar
 *.gz
-*.bz2
+*.tar
+*.tar.gz
 
-# --- Configuración local y tokens ---
-config_local.py
-.env
-.env.*
-*.key
-*.pem
-*.crt
-*.secret
-api_keys.json
-secrets.json
-
-# --- Archivos de logs extendidos ---
-*.out
-nohup.out
-debug.log
-error.log
-
-# --- Sistema operativo ---
-Thumbs.db
-Desktop.ini
+# Archivos de ejemplo o prueba
+test_*.py
