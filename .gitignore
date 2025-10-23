@@ -1,0 +1,82 @@
+
+# --- Archivos generados automáticamente ---
+*.log
+*.csv
+*.xlsx
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+
+# --- Salidas del pipeline ---
+best_genomes_by_class.csv
+best_genomes_by_class.xlsx
+pipeline.log
+
+# --- Carpetas de resultados temporales ---
+/__pycache__/
+/.cache/
+/output/
+/results/
+/temp/
+/tmp/
+/backups/
+/test_data/
+/.venv/
+/env/
+/venv/
+
+# --- Entornos de ejecución y compilación ---
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.installed.cfg
+
+# --- Archivos locales y configuraciones de IDE ---
+.vscode/
+.idea/
+*.code-workspace
+
+# --- Archivos de Jupyter / Notebooks ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- Datos externos o grandes ---
+/data/
+/downloads/
+/datasets/
+/checkpoints/
+/archives/
+/compressed/
+*.zip
+*.tar.gz
+*.tar
+*.gz
+*.bz2
+
+# --- Configuración local y tokens ---
+config_local.py
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.secret
+api_keys.json
+secrets.json
+
+# --- Archivos de logs extendidos ---
+*.out
+nohup.out
+debug.log
+error.log
+
+# --- Sistema operativo ---
+Thumbs.db
+Desktop.ini

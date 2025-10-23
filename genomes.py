@@ -1,138 +1,128 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from typing import Tuple
+"""
+genomes.py
+Consulta y evaluación de ensamblajes genómicos mediante NCBI Datasets API:
+- Recupera reportes de genomas asociados a un taxID
+- Evalúa métricas estructurales y de calidad
+- Selecciona el mejor ensamblaje basado en un puntaje ponderado
+"""
+
+from http_client import _get
 from config import log_kv
-from http_client import http_get
 
-# Reglas y pesos
+# ===================== PONDERACIONES =====================
+
 REFSEQ_SCORE = {"REFERENCE GENOME": 3, "REPRESENTATIVE GENOME": 2}
-LEVEL_SCORE  = {"Complete Genome": 4, "Chromosome": 3, "Scaffold": 2, "Contig": 1}
-MIN_COV_REFSEQ = 40.0
-MIN_COV_OTHER  = 30.0
+LEVEL_SCORE = {"COMPLETE GENOME": 4, "CHROMOSOME": 3, "SCAFFOLD": 2, "CONTIG": 1}
 
-# Boost para especies modelo (si aparecen)
-MODEL_BOOST = {
-    # planta modelo, gramíneas, solanáceas, musgos, hepáticas…
-    "Arabidopsis thaliana": 2.0,
-    "Oryza sativa": 2.0,
-    "Nicotiana tabacum": 1.5,
-    "Zea mays": 1.5,
-    "Physcomitrium patens": 1.5,
-    "Marchantia polymorpha": 1.5,
-    "Sorghum bicolor": 1.2,
-    "Glycine max": 1.2,
-    "Triticum aestivum": 1.2,
-}
+MIN_COVERAGE_REFSEQ = 40.0  # Cobertura mínima para RefSeq
+MIN_COVERAGE_GENBANK = 30.0 # Cobertura mínima para GenBank
+
+# ===================== FUNCIONES PRINCIPALES =====================
 
 def genome_dataset_report_for_taxid(tax_id: str) -> list[dict]:
-    r = http_get(f"/genome/taxon/{tax_id}/dataset_report")
-    reps = r.json().get("reports") or []
-    # filtrar exactamente por tax_id
-    out = []
-    for rep in reps:
-        org_tid = str((rep.get("organism") or {}).get("tax_id") or "")
-        if org_tid == str(tax_id):
-            out.append(rep)
-    log_kv("info", "genome_reports", tax_id=tax_id, count=len(out))
-    return out
+    """
+    Recupera los ensamblajes genómicos asociados a un tax_id específico.
+    Endpoint: /genome/taxon/{tax_id}/dataset_report
+    """
+    log_kv("INFO", "Consultando genomas", TaxID=tax_id)
+    r = _get(f"/genome/taxon/{tax_id}/dataset_report")
+    reports = r.json().get("reports") or []
+    if not reports:
+        log_kv("WARN", "Sin genomas disponibles", TaxID=tax_id)
+    return reports
 
-def _f_or_none(x):
-    try: return float(x)
-    except: return None
-
-def assess_assembly(rep: dict) -> Tuple[bool, str]:
-    info  = rep.get("assembly_info", {}) or {}
-    stats = rep.get("assembly_stats", {}) or {}
-
-    refcat = (info.get("refseq_category") or "").upper()
-    level  = info.get("assembly_level") or ""
-
-    cov = _f_or_none(stats.get("genome_coverage"))
-    c50 = _f_or_none(stats.get("contig_n50"))
-    s50 = _f_or_none(stats.get("scaffold_n50"))
-    nsc = _f_or_none(stats.get("number_of_scaffolds")) or 0.0
-
-    # Cobertura mínima
-    min_cov = MIN_COV_REFSEQ if refcat in {"REFERENCE GENOME","REPRESENTATIVE GENOME"} else MIN_COV_OTHER
-    if cov is not None and cov < min_cov:
-        return (False, f"low_coverage:{cov}x<{min_cov}x")
-
-    # Si no hay coverage: acepta si el nivel/estructura son fuertes
-    if cov is None:
-        if level in {"Complete Genome","Chromosome"} and ((s50 and s50 >= 1_000_000) or (c50 and c50 >= 100_000)) and nsc <= 1000:
-            return (True, "fallback_ok_no_coverage")
-        return (False, "no_coverage_and_low_structure")
-
-    # Con cobertura: pide mínimos razonables
-    if level in {"Complete Genome","Chromosome"} or (s50 and s50 >= 500_000) or (c50 and c50 >= 50_000):
-        return (True, "ok")
-
-    return (False, "n50_low")
-
-def score_assembly(rep: dict) -> float:
-    info  = rep.get("assembly_info", {}) or {}
-    stats = rep.get("assembly_stats", {}) or {}
-    org   = rep.get("organism", {}) or {}
-
-    refcat = (info.get("refseq_category") or "").upper()
-    level  = info.get("assembly_level") or ""
-    s_ref   = REFSEQ_SCORE.get(refcat, 0)
-    s_level = LEVEL_SCORE.get(level, 0)
-    s_scaf  = _f_or_none(stats.get("scaffold_n50")) or 0.0
-    s_cont  = _f_or_none(stats.get("contig_n50")) or 0.0
-    n_scaff = _f_or_none(stats.get("number_of_scaffolds")) or 0.0
-    recent  = 0.0
-    date = info.get("release_date") or info.get("submission_date")
-    if date:
-        try: recent = (int(str(date)[:4]) - 2000) / 100.0
-        except: pass
-
-    boost = MODEL_BOOST.get(org.get("organism_name",""), 0.0)
-
-    return (10*s_ref) + (5*s_level) + (s_scaf/1e6) + (s_cont/1e6) - (n_scaff/1e6) + recent + boost
-
-def pick_best_accepted(reports: list[dict]) -> tuple[dict|None, dict]:
-    audited = {"accepted": [], "rejected": []}
-    for rep in reports:
-        ok, why = assess_assembly(rep)
-        rec = {
-            "accession": rep.get("current_accession") or rep.get("accession"),
-            "refseq": (rep.get("assembly_info",{}) or {}).get("refseq_category"),
-            "level":  (rep.get("assembly_info",{}) or {}).get("assembly_level"),
-            "cov":    (rep.get("assembly_stats",{}) or {}).get("genome_coverage"),
-            "contig_n50": (rep.get("assembly_stats",{}) or {}).get("contig_n50"),
-            "scaffold_n50": (rep.get("assembly_stats",{}) or {}).get("scaffold_n50"),
-            "why": why
-        }
-        (audited["accepted"] if ok else audited["rejected"]).append(rec)
-
-    if not audited["accepted"]:
-        return (None, audited)
-
-    acc_reps = []
-    acc_ids  = {a["accession"] for a in audited["accepted"]}
-    for rp in reports:
-        acc = rp.get("current_accession") or rp.get("accession")
-        if acc in acc_ids:
-            acc_reps.append(rp)
-
-    acc_reps.sort(key=score_assembly, reverse=True)
-    best = acc_reps[0]
-    return (best, audited)
 
 def extract_metrics(rep: dict) -> dict:
-    info  = rep.get("assembly_info", {}) or {}
+    """
+    Extrae las métricas relevantes del reporte de ensamblaje.
+    """
+    info = rep.get("assembly_info", {}) or {}
     stats = rep.get("assembly_stats", {}) or {}
-    org   = rep.get("organism", {}) or {}
-    def kb(x): 
-        try: return float(x)/1000.0
-        except: return None
+    org = rep.get("organism", {}) or {}
+
+    def f(x):  # convierte a kilobases
+        try:
+            return None if x is None else float(x) / 1000.0
+        except Exception:
+            return None
+
     return {
         "Accession": rep.get("current_accession") or rep.get("accession"),
         "RefSeq category": info.get("refseq_category"),
         "Genome level": info.get("assembly_level"),
-        "Genome coverage": stats.get("genome_coverage"),
-        "Contig N50 (kb)": kb(stats.get("contig_n50")),
-        "Scaffold N50 (kb)": kb(stats.get("scaffold_n50")),
+        "Genome coverage": float(stats.get("genome_coverage") or 0.0),
+        "Contig N50 (kb)": f(stats.get("contig_n50")),
+        "Scaffold N50 (kb)": f(stats.get("scaffold_n50")),
+        "Number of scaffolds": int(stats.get("number_of_scaffolds") or 0),
         "Organism": org.get("organism_name"),
         "TaxID": org.get("tax_id")
     }
+
+
+def passes_quality_filter(metrics: dict) -> bool:
+    """
+    Evalúa si un ensamblaje cumple los requisitos mínimos de cobertura.
+    """
+    refcat = (metrics.get("RefSeq category") or "").upper()
+    cov = metrics.get("Genome coverage") or 0.0
+
+    if refcat == "REFERENCE GENOME" and cov < MIN_COVERAGE_REFSEQ:
+        return False
+    if refcat != "REFERENCE GENOME" and cov < MIN_COVERAGE_GENBANK:
+        return False
+    return True
+
+
+def compute_score(metrics: dict) -> float:
+    """
+    Calcula el puntaje compuesto (ponderado) de un ensamblaje.
+    """
+    refcat = (metrics.get("RefSeq category") or "").upper()
+    level = (metrics.get("Genome level") or "").upper()
+    scaffold_n50 = metrics.get("Scaffold N50 (kb)") or 0.0
+    contig_n50 = metrics.get("Contig N50 (kb)") or 0.0
+    n_scaff = metrics.get("Number of scaffolds") or 0
+    coverage = metrics.get("Genome coverage") or 0.0
+
+    score = (
+        REFSEQ_SCORE.get(refcat, 0) * 1.0 +
+        LEVEL_SCORE.get(level, 0) * 1.2 +
+        (coverage / 50.0) +                 # mayor cobertura = mejor
+        (scaffold_n50 + contig_n50) / 100.0 -
+        (n_scaff / 1e5)                     # penalización por fragmentación
+    )
+
+    return round(score, 3)
+
+
+def pick_best_assembly(reports: list[dict]) -> dict | None:
+    """
+    Selecciona el mejor ensamblaje de una lista basándose en su puntaje total.
+    """
+    if not reports:
+        return None
+
+    evaluated = []
+    for rep in reports:
+        metrics = extract_metrics(rep)
+        if not passes_quality_filter(metrics):
+            log_kv("WARN", "Descartado por baja cobertura",
+                   Accession=metrics["Accession"],
+                   Coverage=metrics["Genome coverage"])
+            continue
+
+        metrics["Score"] = compute_score(metrics)
+        evaluated.append((metrics["Score"], rep, metrics))
+
+    if not evaluated:
+        return None
+
+    evaluated.sort(key=lambda x: x[0], reverse=True)
+    best_score, best_rep, best_metrics = evaluated[0]
+    log_kv("INFO", "Mejor ensamblaje seleccionado",
+           Accession=best_metrics["Accession"],
+           Score=best_score,
+           Coverage=best_metrics["Genome coverage"])
+    return best_rep
