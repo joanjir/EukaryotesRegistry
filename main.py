@@ -13,18 +13,44 @@ import time
 # ===================== CONFIGURACIÓN GLOBAL =====================
 
 PHYLA = [
-    "Bryophyta",
-    "Chlorophyta",
-    "Charophyta",
-    "Anthocerotophyta",
-    "Glaucophyta",
-    "Marchantiophyta",
-    "Rhodophyta",
-    "Tracheophyta"
+    "Acanthocephala",
+    "Annelida",
+    "Arthropoda",
+    "Brachiopoda",
+    "Bryozoa",
+    "Chaetognatha",
+    "Chordata",
+    "Cnidaria",
+    "Ctenophora",
+    "Cycliophora",
+    "Dicyemida",
+    "Echinodermata",
+    "Entoprocta",
+    "Gastrotricha",
+    "Gnathostomulida",
+    "Hemichordata",
+    "Kinorhyncha",
+    "Loricifera",
+    "Micrognathozoa",
+    "Mollusca",
+    "Nematoda",
+    "Nematomorpha",
+    "Nemertea",
+    "Onychophora",
+    "Orthonectida",
+    "Phoronida",
+    "Placozoa",
+    "Platyhelminthes",
+    "Porifera",
+    "Priapulida",
+    "Rotifera",
+    "Sipuncula",
+    "Tardigrada",
+    "Xenacoelomorpha",
 ]
 
-SPECIES_PER_CLASS = 300  # número máximo de especies analizadas por clase
-TOP_PER_CLASS = 2        # número de especies a conservar por clase
+SPECIES_PER_CLASS = 500  # número máximo de especies analizadas por clase
+TOP_PER_CLASS = 3        # número de especies a conservar por clase
 
 
 # ===================== EJECUCIÓN PRINCIPAL =====================
@@ -49,7 +75,7 @@ def run_pipeline(phylum_list: list[str], species_per_class: int = 20, top_per_cl
     if all_rows:
         export_results(all_rows)
     else:
-        log_line("⚠️ No se generaron resultados. Verifica los registros de pipeline.log.")
+        log_line("No se generaron resultados. Verifica los registros de pipeline.log.")
 
     total_time = round(time.time() - start_time, 2)
     log_kv("INFO", "Pipeline finalizado", TotalRows=len(all_rows), Tiempo=f"{total_time}s")
@@ -61,6 +87,6 @@ if __name__ == "__main__":
     try:
         run_pipeline(PHYLA, species_per_class=SPECIES_PER_CLASS, top_per_class=TOP_PER_CLASS)
     except KeyboardInterrupt:
-        log_line("⛔ Ejecución interrumpida manualmente por el usuario.")
+        log_line(" Ejecución interrumpida manualmente por el usuario.")
     except Exception as e:
         log_kv("ERROR", "Fallo crítico del sistema", Error=str(e))

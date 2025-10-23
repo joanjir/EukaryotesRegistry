@@ -8,18 +8,21 @@ Flujo principal del sistema EukaryotesRegistry:
 - Evalúa la calidad y selecciona los mejores por clase
 - Ejecuta en paralelo con control de carga y registro
 """
-
-import csv
+import os
 import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
+from openpyxl.utils import get_column_letter
+import csv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from taxonomy import taxid_by_name, related_ids, names_for_ids
 from genomes import genome_dataset_report_for_taxid, pick_best_assembly, extract_metrics, compute_score, passes_quality_filter
 from config import MAX_WORKERS, log_kv, log_header, log_line
 
-
 # ===================== FUNCIONES INTERNAS =====================
 
-def best_species_rows_for_class(class_id: str, class_name: str, species_limit: int = 20) -> list[dict]:
+
+def best_species_rows_for_class(class_id: str, class_name: str, species_limit: int=20) -> list[dict]:
     """
     Obtiene las mejores especies para una clase, verificando métricas de calidad.
     """
@@ -83,7 +86,8 @@ def best_species_rows_for_class(class_id: str, class_name: str, species_limit: i
     rows.sort(key=lambda r: r.get("Score", 0), reverse=True)
     return rows
 
-def best_two_species_per_class(phylum_name: str, species_per_class: int = 20) -> list[dict]:
+
+def best_two_species_per_class(phylum_name: str, species_per_class: int=20) -> list[dict]:
     """
     Para un filo dado:
     1. Obtiene sus clases.
@@ -139,29 +143,87 @@ def best_two_species_per_class(phylum_name: str, species_per_class: int = 20) ->
     return all_rows
 
 
-def export_results(all_rows: list[dict], output_csv="best_genomes_by_class.csv", output_xlsx="best_genomes_by_class.xlsx"):
+def export_results(rows: list[dict]):
     """
-    Exporta los resultados consolidados a CSV y Excel.
+    Exporta los resultados a Excel con formato profesional:
+    - Fondo amarillo en encabezados
+    - Bordes visibles
+    - Autoajuste de columnas
+    - Cada Phylum en una hoja separada
     """
-    header = [
-        "Phylum", "Class", "Species",
-        "Accession", "RefSeq category", "Genome level",
-        "Genome coverage", "Contig N50 (kb)", "Scaffold N50 (kb)"
-    ]
-
-    if not all_rows:
-        log_line("⚠️ No se generaron resultados para exportar.")
+    if not rows:
+        log_kv("WARN", "Sin resultados que exportar.")
         return
 
-    # CSV
-    with open(output_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=header)
-        writer.writeheader()
-        writer.writerows(all_rows)
-    log_kv("INFO", "Archivo CSV generado", File=output_csv, Rows=len(all_rows))
+    phyla = sorted(set(r.get("Phylum", "Unknown") for r in rows))
+    output_excel = "best_genomes_by_class.xlsx"
 
-    # Excel
-    df = pd.DataFrame(all_rows, columns=header)
-    df.sort_values(by=["Phylum", "Class", "Species"], inplace=True, kind="stable")
-    df.to_excel(output_xlsx, index=False)
-    log_kv("INFO", "Archivo Excel generado", File=output_xlsx, Rows=len(df))
+    for phylum in phyla:
+        subset = [r for r in rows if r.get("Phylum") == phylum]
+        if not subset:
+            log_kv("WARN", f"Sin datos para {phylum}")
+            continue
+
+        df = pd.DataFrame(subset)
+        df.sort_values(by=["Phylum", "Class", "Species"], inplace=True, kind="stable")
+
+
+        # Guardar hoja (crear o anexar)
+        if os.path.exists(output_excel):
+            mode = "a"
+            writer_args = {"if_sheet_exists": "replace"}
+        else:
+            mode = "w"
+            writer_args = {}
+
+
+        try:
+            
+            with pd.ExcelWriter(output_excel, mode=mode, engine="openpyxl", **writer_args) as writer:
+                sheet_name = phylum[:30]
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+        except Exception as e:
+            log_kv("ERROR", f"Fallo al escribir hoja de {phylum}: {e}")
+            continue
+
+        # Aplicar formato visual
+        try:
+            wb = load_workbook(output_excel)
+            ws = wb[sheet_name]
+
+            # Estilos
+            header_fill = PatternFill(start_color="FFF59D", end_color="FFF59D", fill_type="solid")
+            header_font = Font(bold=True)
+            border = Border(
+                left=Side(style="thin", color="000000"),
+                right=Side(style="thin", color="000000"),
+                top=Side(style="thin", color="000000"),
+                bottom=Side(style="thin", color="000000"),
+            )
+
+            # Encabezado
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.border = border
+
+            # Celdas con bordes y texto centrado
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, max_col=ws.max_column):
+                for cell in row:
+                    cell.border = border
+                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+            # Ajuste automático del ancho
+            for col in ws.columns:
+                max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+                ws.column_dimensions[get_column_letter(col[0].column)].width = min(max_length + 3, 45)
+
+            wb.save(output_excel)
+            wb.close()
+            log_kv("INFO", f"Hoja '{phylum}' exportada ({len(df)} filas)")
+        except Exception as e:
+            log_kv("ERROR", f"Fallo al formatear hoja '{phylum}': {e}")
+
+    log_kv("INFO", f"Exportación finalizada -> {output_excel}")
+
