@@ -7,6 +7,7 @@ Flujo principal del sistema EukaryotesRegistry:
 - Descarga sus ensamblajes genómicos
 - Evalúa la calidad y selecciona los mejores por clase
 - Ejecuta en paralelo con control de carga y registro
+-cambio
 """
 import os
 import pandas as pd
