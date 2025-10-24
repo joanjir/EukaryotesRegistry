@@ -63,6 +63,54 @@ def _call(method: str, path: str, *, params=None, json=None, timeout=NET_TIMEOUT
         except requests.exceptions.RequestException as e:
             log_kv("ERROR", f"HTTP {method} error", path=path, error=str(e))
             raise
+        
+def _get_binary(path: str, *, params=None, timeout=NET_TIMEOUT, accept: str = "application/octet-stream") -> bytes:
+    """
+    Realiza una petición GET y devuelve el cuerpo binario (bytes).
+    - Usa SESSION y semáforo (sema) para limitar concurrencia.
+    - Permite ajustar el header 'Accept' (útil para ZIPs).
+    - Descarga en chunks para no saturar memoria innecesariamente.
+    Lanza excepción si la respuesta no es 2xx.
+    """
+    url = f"{BASE_URL}{path}"
+    with sema:
+        try:
+            # Clonar headers de la sesión y forzar 'Accept' para este request
+            headers = dict(SESSION.headers)
+            headers["Accept"] = accept
+
+            resp = SESSION.get(
+                url,
+                params=params,
+                timeout=timeout,
+                headers=headers,
+                stream=True,
+            )
+            status = resp.status_code
+            log_kv("INFO", "HTTP GET(bin)", url=url, status=status)
+
+            # Levanta excepción para códigos no exitosos
+            resp.raise_for_status()
+
+            # Descargar en chunks a memoria
+            chunks = []
+            for chunk in resp.iter_content(chunk_size=1024 * 1024):  # 1 MiB
+                if chunk:
+                    chunks.append(chunk)
+
+            data = b"".join(chunks)
+            log_kv("INFO", "HTTP GET(bin) ok", url=url, bytes=len(data))
+            return data
+
+        except requests.exceptions.RequestException as e:
+            # Log detallado y re-lanzar para que el caller decida
+            try:
+                # Si hay respuesta, incluir código/status si existe
+                sc = getattr(e.response, "status_code", None)
+                log_kv("ERROR", "HTTP GET(bin) failed", url=url, status=sc, error=str(e))
+            except Exception:
+                log_kv("ERROR", "HTTP GET(bin) failed", url=url, error=str(e))
+            raise
 
 def _get(path: str, *, params=None, timeout=NET_TIMEOUT):
     """Realiza una petición GET segura al API."""

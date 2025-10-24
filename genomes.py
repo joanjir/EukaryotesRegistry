@@ -8,8 +8,10 @@ Consulta y evaluación de ensamblajes genómicos mediante NCBI Datasets API:
 - Selecciona el mejor ensamblaje basado en un puntaje ponderado
 """
 
-from http_client import _get
+from http_client import _get, _get_binary
 from config import log_kv
+import io, zipfile, json
+
 
 # ===================== PONDERACIONES =====================
 
@@ -18,6 +20,22 @@ LEVEL_SCORE = {"COMPLETE GENOME": 4, "CHROMOSOME": 3, "SCAFFOLD": 2, "CONTIG": 1
 
 MIN_COVERAGE_REFSEQ = 40.0  # Cobertura mínima para RefSeq
 MIN_COVERAGE_GENBANK = 30.0 # Cobertura mínima para GenBank
+
+# ===================== POLÍTICA DE FILTRADO DURO =====================
+
+# Aceptamos solo estas categorías RefSeq (maximizan probabilidad de proteoma):
+REQUIRED_REFSEQ_CATEGORIES = {"REFERENCE GENOME", "REPRESENTATIVE GENOME"}
+
+# Niveles de ensamblaje permitidos; "SCAFFOLD" solo si supera N50 fuertes.
+ALLOWED_LEVELS = {"COMPLETE GENOME", "CHROMOSOME"}  # "SCAFFOLD" condicional
+
+# Umbrales mínimos (ajusta por grupo si lo necesitas):
+MIN_SCAFFOLD_N50_KB = 1000.0   # ≥ 1 Mb
+MIN_CONTIG_N50_KB   = 100.0    # ≥ 100 kb
+
+# Si True, además de filtros duros, verificaremos en el catálogo del ZIP que exista .faa
+REQUIRE_PROTEOME = True
+
 
 # ===================== FUNCIONES PRINCIPALES =====================
 
@@ -63,16 +81,37 @@ def extract_metrics(rep: dict) -> dict:
 
 def passes_quality_filter(metrics: dict) -> bool:
     """
-    Evalúa si un ensamblaje cumple los requisitos mínimos de cobertura.
+    Filtro duro para maximizar la probabilidad de que exista PROT_FASTA (protein.faa):
+    - RefSeq category ∈ {Reference, Representative}
+    - Genome level ∈ {Complete, Chromosome} (o Scaffold con N50 fuertes)
+    - Cobertura mínima (reutiliza umbrales existentes)
     """
     refcat = (metrics.get("RefSeq category") or "").upper()
-    cov = metrics.get("Genome coverage") or 0.0
+    level  = (metrics.get("Genome level") or "").upper()
+    cov    = float(metrics.get("Genome coverage") or 0.0)
+    sN50   = float(metrics.get("Scaffold N50 (kb)") or 0.0)
+    cN50   = float(metrics.get("Contig N50 (kb)") or 0.0)
 
+    # 1) Categoría RefSeq (clave para anotación)
+    if refcat not in REQUIRED_REFSEQ_CATEGORIES:
+        return False
+
+    # 2) Nivel de ensamblaje (alto), o "Scaffold" con N50 fuertes
+    if level not in ALLOWED_LEVELS:
+        if level == "SCAFFOLD":
+            if not (sN50 >= MIN_SCAFFOLD_N50_KB or cN50 >= MIN_CONTIG_N50_KB):
+                return False
+        else:
+            return False
+
+    # 3) Cobertura mínima (reutilizamos los umbrales que ya definiste)
     if refcat == "REFERENCE GENOME" and cov < MIN_COVERAGE_REFSEQ:
         return False
-    if refcat != "REFERENCE GENOME" and cov < MIN_COVERAGE_GENBANK:
+    if refcat == "REPRESENTATIVE GENOME" and cov < MIN_COVERAGE_GENBANK:
         return False
+
     return True
+
 
 
 def compute_score(metrics: dict) -> float:
@@ -97,9 +136,33 @@ def compute_score(metrics: dict) -> float:
     return round(score, 3)
 
 
+def has_protein_faa_in_catalog(accession: str) -> bool:
+    """
+    Descarga el ZIP 'fully hydrated' (solo PROT_FASTA) en memoria y verifica
+    en dataset_catalog.json si existe algún archivo .faa listado.
+    """
+    path = f"/genome/accession/{accession}/download"
+    params = {
+        "include_annotation_type": "PROT_FASTA",
+        "hydrated": "FULLY_HYDRATED"
+    }
+    try:
+        blob = _get_binary(path, params=params, accept="application/zip")
+        with zipfile.ZipFile(io.BytesIO(blob), "r") as z:
+            catalog_name = next((n for n in z.namelist() if n.endswith("dataset_catalog.json")), None)
+            if not catalog_name:
+                return False
+            with z.open(catalog_name, "r") as fh:
+                catalog = json.load(io.TextIOWrapper(fh, encoding="utf-8"))
+        # Heurística: ¿aparece ".faa" en el catálogo?
+        return ".faa" in json.dumps(catalog).lower()
+    except Exception:
+        return False
+
 def pick_best_assembly(reports: list[dict]) -> dict | None:
     """
-    Selecciona el mejor ensamblaje de una lista basándose en su puntaje total.
+    Selecciona el mejor ensamblaje de una lista basándose en su puntaje total,
+    aplicando primero filtros duros y (opcionalmente) la verificación de proteoma.
     """
     if not reports:
         return None
@@ -107,12 +170,26 @@ def pick_best_assembly(reports: list[dict]) -> dict | None:
     evaluated = []
     for rep in reports:
         metrics = extract_metrics(rep)
+
+        # 1) Filtros duros (categoría, nivel, N50, cobertura)
         if not passes_quality_filter(metrics):
-            log_kv("WARN", "Descartado por baja cobertura",
-                   Accession=metrics["Accession"],
-                   Coverage=metrics["Genome coverage"])
+            log_kv("WARN", "Descartado por filtros duros",
+                   Accession=metrics.get("Accession"),
+                   RefSeq=metrics.get("RefSeq category"),
+                   Level=metrics.get("Genome level"),
+                   Coverage=metrics.get("Genome coverage"),
+                   ScN50=metrics.get("Scaffold N50 (kb)"),
+                   CtN50=metrics.get("Contig N50 (kb)"))
             continue
 
+        # 2) Verificación opcional de proteoma real en el catálogo
+        if REQUIRE_PROTEOME:
+            acc = metrics.get("Accession")
+            if not has_protein_faa_in_catalog(acc):
+                log_kv("WARN", "Descartado: sin protein.faa en catálogo", Accession=acc)
+                continue
+
+        # 3) Puntuar y acumular
         metrics["Score"] = compute_score(metrics)
         evaluated.append((metrics["Score"], rep, metrics))
 

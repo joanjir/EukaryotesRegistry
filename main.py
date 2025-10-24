@@ -11,43 +11,17 @@ from config import log_header, log_line, log_kv
 import time
 
 # ===================== CONFIGURACIÓN GLOBAL =====================
-
+#Aca iria la lista de filos a analizar se pudiera cargar desde un archivo externo si se desea
 PHYLA = [
-    "Acanthocephala",
-    "Annelida",
-    "Arthropoda",
-    "Brachiopoda",
-    "Bryozoa",
-    "Chaetognatha",
-    "Chordata",
-    "Cnidaria",
-    "Ctenophora",
-    "Cycliophora",
-    "Dicyemida",
-    "Echinodermata",
-    "Entoprocta",
-    "Gastrotricha",
-    "Gnathostomulida",
-    "Hemichordata",
-    "Kinorhyncha",
-    "Loricifera",
-    "Micrognathozoa",
-    "Mollusca",
-    "Nematoda",
-    "Nematomorpha",
-    "Nemertea",
-    "Onychophora",
-    "Orthonectida",
-    "Phoronida",
-    "Placozoa",
-    "Platyhelminthes",
-    "Porifera",
-    "Priapulida",
-    "Rotifera",
-    "Sipuncula",
-    "Tardigrada",
-    "Xenacoelomorpha",
-]
+    "Bryophyta",
+    "Chlorophyta",
+    "Charophyta",
+    "Anthocerotophyta",
+    "Glaucophyta",
+    "Marchantiophyta",
+    "Rhodophyta",
+    "Tracheophyta"
+    ]
 
 SPECIES_PER_CLASS = 500  # número máximo de especies analizadas por clase
 TOP_PER_CLASS = 3        # número de especies a conservar por clase
