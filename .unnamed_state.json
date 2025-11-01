@@ -1,11 +1,12 @@
 {
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Chordata": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Cnidaria": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Ctenophora": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Echinodermata": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Hemichordata": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Mollusca": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Nemertea": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Porifera": "DONE",
-  "C:\\Users\\joanj\\Documents\\proyectoTesis\\DataAnalysis\\Download NCBI\\proteins_download\\Tardigrada": "DONE"
+  "chromista\\Ciliophora\\Ciliophora": "DONE",
+  "chromista\\Ochrophyta\\Ochrophyta": "DONE",
+  "fungi\\Ascomycota\\Ascomycota": "DONE",
+  "fungi\\Basidiomycota\\Basidiomycota": "DONE",
+  "fungi\\Blastocladiomycota\\Blastocladiomycota": "DONE",
+  "fungi\\Chytridiomycota\\Chytridiomycota": "DONE",
+  "fungi\\Mucoromycota\\Mucoromycota": "DONE",
+  "fungi\\Zoopagomycota\\Zoopagomycota": "DONE",
+  "plantae\\Chlorophyta\\Chlorophyta": "DONE",
+  "plantae\\Marchantiophyta\\Marchantiophyta": "DONE"
 }

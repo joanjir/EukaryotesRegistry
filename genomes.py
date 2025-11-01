@@ -135,12 +135,18 @@ def compute_score(metrics: dict) -> float:
 
     return round(score, 3)
 
-
 def has_protein_faa_in_catalog(accession: str) -> bool:
     """
-    Descarga el ZIP 'fully hydrated' (solo PROT_FASTA) en memoria y verifica
-    en dataset_catalog.json si existe algún archivo .faa listado.
+    Descarga el ZIP con archivos .faa y verifica:
+    1. Que exista al menos un archivo protein.faa
+    2. Que la mayoría de las proteínas tengan descripciones válidas (no "unnamed", "hypothetical", etc.)
     """
+    UNNAMED_KEYS = (
+        "unnamed protein product",
+        "hypothetical protein",
+        "uncharacterized protein",
+    )
+
     path = f"/genome/accession/{accession}/download"
     params = {
         "include_annotation_type": "PROT_FASTA",
@@ -152,11 +158,41 @@ def has_protein_faa_in_catalog(accession: str) -> bool:
             catalog_name = next((n for n in z.namelist() if n.endswith("dataset_catalog.json")), None)
             if not catalog_name:
                 return False
-            with z.open(catalog_name, "r") as fh:
-                catalog = json.load(io.TextIOWrapper(fh, encoding="utf-8"))
-        # Heurística: ¿aparece ".faa" en el catálogo?
-        return ".faa" in json.dumps(catalog).lower()
-    except Exception:
+
+            # --- verificar que haya al menos un archivo protein.faa ---
+            faa_files = [n for n in z.namelist() if n.endswith(".faa")]
+            if not faa_files:
+                return False
+
+            # --- abrir un .faa y revisar encabezados ---
+            unnamed_count, total = 0, 0
+            for faa_name in faa_files:
+                with z.open(faa_name, "r") as fh:
+                    for line in io.TextIOWrapper(fh, encoding="utf-8"):
+                        if line.startswith(">"):
+                            total += 1
+                            header = line.lower()
+                            if any(k in header for k in UNNAMED_KEYS):
+                                unnamed_count += 1
+
+                # Si ya hay suficientes para estimar proporción, no necesitamos leer todo
+                if total >= 1000:
+                    break
+
+            if total == 0:
+                return False
+
+            ratio_unnamed = unnamed_count / total
+            # Filtramos si más del 80% son "unnamed"/"hypothetical"/"uncharacterized"
+            if ratio_unnamed > 0.8:
+                log_kv("WARN", "Proteoma descartado por pobre anotación",
+                       Accession=accession, UnnamedRatio=f"{ratio_unnamed:.2f}")
+                return False
+
+        return True
+
+    except Exception as e:
+        log_kv("ERROR", "Fallo verificando proteoma", Accession=accession, Error=str(e))
         return False
 
 def pick_best_assembly(reports: list[dict]) -> dict | None:

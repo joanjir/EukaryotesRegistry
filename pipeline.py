@@ -88,12 +88,12 @@ def best_species_rows_for_class(class_id: str, class_name: str, species_limit: i
     return rows
 
 
-def best_two_species_per_class(phylum_name: str, species_per_class: int=20) -> list[dict]:
+def best_species_per_class(phylum_name: str, species_per_class: int = None, top_per_class: int = 3) -> list[dict]:
     """
     Para un filo dado:
-    1. Obtiene sus clases.
-    2. Evalúa sus especies.
-    3. Conserva las 2 mejores especies por clase según score.
+    1. Obtiene todas las clases del filo.
+    2. Evalúa todas las especies disponibles de cada clase.
+    3. Conserva hasta 'top_per_class' especies mejor anotadas por clase.
     """
     try:
         phylum_id = taxid_by_name(phylum_name)
@@ -109,7 +109,17 @@ def best_two_species_per_class(phylum_name: str, species_per_class: int=20) -> l
         if x["rank"] == "CLASS" and x["name"]
     }
 
+    if not class_info:
+        log_kv("WARN", "Sin clases detectadas", Phylum=phylum_name)
+        return []
+
     all_rows = []
+    total_classes = len(class_info)
+    valid_classes = 0
+
+    # Si no se define species_per_class, analizar TODAS las especies
+    if species_per_class is None:
+        species_per_class = 10000
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {
@@ -122,27 +132,26 @@ def best_two_species_per_class(phylum_name: str, species_per_class: int=20) -> l
             try:
                 rows = future.result()
                 if not rows:
+                    log_kv("WARN", "Clase sin genomas válidos", Phylum=phylum_name, Class=cname)
                     continue
 
-                # Ordenar por calidad si existe cobertura o N50
-                def sort_key(r):
-                    cov = r.get("Genome coverage") or 0
-                    n50 = r.get("Scaffold N50 (kb)") or 0
-                    return (cov, n50)
-
-                top2 = sorted(rows, key=lambda r: r.get("Score", 0), reverse=True)[:2]
-                for r in top2:
+                valid_classes += 1
+                top_n = sorted(rows, key=lambda r: r.get("Score", 0), reverse=True)[:top_per_class]
+                for r in top_n:
                     r["Phylum"] = phylum_name
                     r["Class"] = cname
-                all_rows.extend(top2)
+                all_rows.extend(top_n)
 
-                log_kv("INFO", "Clase procesada", Phylum=phylum_name, Class=cname, Selected=len(top2))
+                log_kv("INFO", "Clase procesada", Phylum=phylum_name, Class=cname, Selected=len(top_n))
             except Exception as e:
                 log_kv("ERROR", "Error en clase", Class=cname, Error=str(e))
 
-    log_kv("INFO", "Filo completado", Phylum=phylum_name, Rows=len(all_rows))
+    log_kv("INFO", "Resumen de filo",
+           Phylum=phylum_name,
+           TotalClases=total_classes,
+           ClasesValidas=valid_classes,
+           TotalFilas=len(all_rows))
     return all_rows
-
 
 def export_results(rows: list[dict]):
     """

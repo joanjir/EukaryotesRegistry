@@ -3,36 +3,33 @@
 """
 main.py
 Punto de entrada principal del sistema EukaryotesRegistry.
-Orquesta la ejecución completa del pipeline taxonómico y genómico.
+Ejecuta el pipeline completo por filo, seleccionando las mejores especies por clase.
 """
 
-from pipeline import best_two_species_per_class, export_results
+from pipeline import best_species_per_class, export_results
 from config import log_header, log_line, log_kv
 import time
 
 # ===================== CONFIGURACIÓN GLOBAL =====================
-#Aca iria la lista de filos a analizar se pudiera cargar desde un archivo externo si se desea
+
 PHYLA = [
-    "Bryophyta",
-    "Chlorophyta",
-    "Charophyta",
-    "Anthocerotophyta",
-    "Glaucophyta",
-    "Marchantiophyta",
-    "Rhodophyta",
-    "Tracheophyta"
-    ]
+    
+    "Arthropoda",
+    
+]
 
-SPECIES_PER_CLASS = 500  # número máximo de especies analizadas por clase
-TOP_PER_CLASS = 3        # número de especies a conservar por clase
-
+SPECIES_PER_CLASS = 10000  # revisar todas las especies posibles
+TOP_PER_CLASS = 3          # conservar las 3 mejores por clase
 
 # ===================== EJECUCIÓN PRINCIPAL =====================
 
-def run_pipeline(phylum_list: list[str], species_per_class: int = 20, top_per_class: int = 2):
+def run_pipeline(phylum_list: list[str], species_per_class: int | None = None, top_per_class: int | None = None):
     """
     Ejecuta el flujo completo para una lista de filos y exporta los resultados.
     """
+    species_per_class = species_per_class or SPECIES_PER_CLASS
+    top_per_class = top_per_class or TOP_PER_CLASS
+
     start_time = time.time()
     log_header("INICIO DEL PIPELINE EukaryotesRegistry")
 
@@ -40,27 +37,25 @@ def run_pipeline(phylum_list: list[str], species_per_class: int = 20, top_per_cl
     for phylum in phylum_list:
         log_kv("INFO", "Analizando filo", Phylum=phylum)
         try:
-            rows = best_two_species_per_class(phylum, species_per_class=species_per_class)
+            rows = best_species_per_class(phylum, species_per_class=species_per_class, top_per_class=top_per_class)
             all_rows.extend(rows)
-            log_kv("INFO", "Filo completado", Phylum=phylum, Resultados=len(rows))
         except Exception as e:
             log_kv("ERROR", "Error procesando filo", Phylum=phylum, Error=str(e))
 
     if all_rows:
         export_results(all_rows)
     else:
-        log_line("No se generaron resultados. Verifica los registros de pipeline.log.")
+        log_line("No se generaron resultados. Verifica pipeline.log.")
 
     total_time = round(time.time() - start_time, 2)
-    log_kv("INFO", "Pipeline finalizado", TotalRows=len(all_rows), Tiempo=f"{total_time}s")
-
+    log_kv("INFO", "PIPELINE FINALIZADO", TotalRows=len(all_rows), Tiempo=f"{total_time}s")
 
 # ===================== EJECUCIÓN DIRECTA =====================
 
 if __name__ == "__main__":
     try:
-        run_pipeline(PHYLA, species_per_class=SPECIES_PER_CLASS, top_per_class=TOP_PER_CLASS)
+        run_pipeline(PHYLA)
     except KeyboardInterrupt:
-        log_line(" Ejecución interrumpida manualmente por el usuario.")
+        log_line("Ejecución interrumpida manualmente.")
     except Exception as e:
         log_kv("ERROR", "Fallo crítico del sistema", Error=str(e))

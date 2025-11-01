@@ -16,7 +16,7 @@ from datetime import datetime
 
 BASE_URL = "https://api.ncbi.nlm.nih.gov/datasets/v2"
 USER_AGENT = "EukaryotesRegistry/1.0 (contact: your_email@domain)"
-API_KEY = None  # Si posees una clave de NCBI, colócala aquí
+API_KEY = None  
 
 # ===================== CONCURRENCIA =====================
 
