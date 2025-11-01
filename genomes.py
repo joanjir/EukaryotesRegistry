@@ -77,41 +77,99 @@ def extract_metrics(rep: dict) -> dict:
         "Organism": org.get("organism_name"),
         "TaxID": org.get("tax_id")
     }
+def _as_float(x, default=0.0):
+    """Convierte valores numéricos o cadenas tipo '3,810.18' a float."""
+    if x is None:
+        return default
+    if isinstance(x, (int, float)):
+        return float(x)
+    try:
+        return float(str(x).replace(",", "").strip())
+    except Exception:
+        return default
 
 
-def passes_quality_filter(metrics: dict) -> bool:
+def passes_quality_filter(metrics: dict, phylum_name: str = None) -> bool:
     """
-    Filtro duro para maximizar la probabilidad de que exista PROT_FASTA (protein.faa):
-    - RefSeq category ∈ {Reference, Representative}
-    - Genome level ∈ {Complete, Chromosome} (o Scaffold con N50 fuertes)
-    - Cobertura mínima (reutiliza umbrales existentes)
+    Evalúa si un ensamblaje genómico cumple criterios de calidad estructural
+    y anotacional. Aplica reglas generales y ajustes específicos según el filo.
     """
-    refcat = (metrics.get("RefSeq category") or "").upper()
-    level  = (metrics.get("Genome level") or "").upper()
-    cov    = float(metrics.get("Genome coverage") or 0.0)
-    sN50   = float(metrics.get("Scaffold N50 (kb)") or 0.0)
-    cN50   = float(metrics.get("Contig N50 (kb)") or 0.0)
 
-    # 1) Categoría RefSeq (clave para anotación)
-    if refcat not in REQUIRED_REFSEQ_CATEGORIES:
+    phylum_name = (phylum_name or "").lower()
+    org = (metrics.get("Organism") or "").lower()
+    assembly_name = (metrics.get("Assembly name") or "").lower()
+    genome_level = (metrics.get("Genome level") or "").lower()
+    refseq_cat = (metrics.get("RefSeq category") or "").lower()
+
+    if any(k in assembly_name for k in ["transcriptome", "metagenome", "symbiont"]):
+        log_kv("WARN", "Descartado por tipo de ensamblaje", Type=assembly_name)
+        return False
+    if any(k in org for k in ["chloroplast", "plastid", "mitochondr"]):
+        log_kv("WARN", "Descartado por ser organelo", Organism=org)
         return False
 
-    # 2) Nivel de ensamblaje (alto), o "Scaffold" con N50 fuertes
-    if level not in ALLOWED_LEVELS:
-        if level == "SCAFFOLD":
-            if not (sN50 >= MIN_SCAFFOLD_N50_KB or cN50 >= MIN_CONTIG_N50_KB):
-                return False
-        else:
+    cov = float(metrics.get("Genome coverage", 0) or 0)
+    n50_c = float(metrics.get("Contig N50 (kb)", 0) or 0)
+    n50_s = float(metrics.get("Scaffold N50 (kb)", 0) or 0)
+
+    if genome_level not in ["complete genome", "chromosome", "scaffold"]:
+        return False
+    if refseq_cat and refseq_cat not in ["reference genome", "representative genome"]:
+        return False
+
+
+  
+    if any(key in phylum_name for key in [
+        "amoebozoa", "euglenozoa", "ciliophora", "apicomplexa", "metamonada"
+    ]):
+        # Lista blanca: modelos eucariotas unicelulares no parásitos
+        whitelist = ["giardia", "trypanosoma", "leishmania", "tetrahymena", "paramecium"]
+        # Lista negra: parásitos intracelulares y apicomplejos
+        blacklist = ["plasmodium", "babesia", "toxoplasma", "cryptosporidium", "theileria"]
+
+        if any(k in org for k in blacklist):
+            log_kv("WARN", "Descartado por ser parásito intracelular", Organism=org)
             return False
 
-    # 3) Cobertura mínima (reutilizamos los umbrales que ya definiste)
-    if refcat == "REFERENCE GENOME" and cov < MIN_COVERAGE_REFSEQ:
-        return False
-    if refcat == "REPRESENTATIVE GENOME" and cov < MIN_COVERAGE_GENBANK:
-        return False
+        if any(k in org for k in whitelist):
+            log_kv("INFO", "Excepción permitida (modelo protozoario)", Organism=org)
+            return True
 
-    return True
+        # Reglas más permisivas para protozoarios en general
+        if cov >= 40 and (n50_c >= 100 or n50_s >= 100):
+            return True
+        else:
+            log_kv("WARN", "Protozoo descartado por baja calidad", Coverage=cov, N50C=n50_c, N50S=n50_s)
+            return False
 
+   
+    if any(key in phylum_name for key in [
+        "ochrophyta", "haptophyta", "cryptophyta", "oomycota", "dinophyceae"
+    ]):
+        whitelist = ["thalassiosira", "emiliania", "pavlova", "phytophthora"]
+        blacklist = ["symbiodinium", "zooxanthella", "endosymbiont"]
+
+        if any(k in org for k in blacklist):
+            log_kv("WARN", "Descartado por ser simbionte o metagenoma", Organism=org)
+            return False
+
+        if any(k in org for k in whitelist):
+            log_kv("INFO", "Excepción permitida (modelo chromista)", Organism=org)
+            return True
+
+        # Reglas medias: cobertura ≥50% y N50 ≥200 kb
+        if cov >= 50 and (n50_c >= 200 or n50_s >= 200):
+            return True
+        else:
+            log_kv("WARN", "Chromista descartado por baja calidad", Coverage=cov, N50C=n50_c, N50S=n50_s)
+            return False
+
+    
+    if cov >= 80 and (n50_c >= 500 or n50_s >= 500):
+        return True
+    else:
+        log_kv("WARN", "Genoma descartado (regla general)", Coverage=cov, N50C=n50_c, N50S=n50_s)
+        return False
 
 
 def compute_score(metrics: dict) -> float:
@@ -183,8 +241,8 @@ def has_protein_faa_in_catalog(accession: str) -> bool:
                 return False
 
             ratio_unnamed = unnamed_count / total
-            # Filtramos si más del 80% son "unnamed"/"hypothetical"/"uncharacterized"
-            if ratio_unnamed > 0.8:
+            # Filtramos si más del 50% son "unnamed"/"hypothetical"/"uncharacterized"
+            if ratio_unnamed > 0.5:
                 log_kv("WARN", "Proteoma descartado por pobre anotación",
                        Accession=accession, UnnamedRatio=f"{ratio_unnamed:.2f}")
                 return False

@@ -44,7 +44,7 @@ ANIMALIA_PHYLA = [
 PLANT_PHYLA = [
     "Bryophyta",
     "Chlorophyta",
-    "Charophyta",
+    "Streptophyta",
     "Anthocerotophyta",
     "Glaucophyta",
     "Marchantiophyta",
@@ -52,28 +52,25 @@ PLANT_PHYLA = [
     "Tracheophyta"
 ]
 
----
 # 🍄 Filos del reino Fungi 
 FUNGAL_PHYLA = [
     "Ascomycota",
     "Basidiomycota",
     "Blastocladiomycota",
     "Chytridiomycota",
-    "Entomophthoromycota",
-    "Entorrhizomycota",
+    "Glomeromycota",
     "Glomeromycota",
     "Mucoromycota",
     "Neocallimastigomycota",
     "Sanchytriomycota",
     "Zoopagomycota",
-    "Zygomycota"
 ]
 
----
+
 
 # 🪸 Filos del reino Chromista
 CHROMISTA_PHYLA = [
-    "Acavomonidia",
+    "Alveolata",
     "Bigyra",
     "Cercozoa",
     "Chromerida",
@@ -85,18 +82,16 @@ CHROMISTA_PHYLA = [
     "Picozoa"
 ]
 
----
 
 # 🧫 Filos del reino Protozoa
 PROTOZOA_PHYLA = [
     "Amoebozoa",
-    "Calcitarcha",
-    "Choanozoa",
+    "Choanoflagellata",
     "Euglenozoa",
-    "Loukozoa",
+    "Excavata",
     "Metamonada",
     "Microsporidia",
     "Mycetozoa",
-    "Sarcomastigophora",
-    "Sulcozoa"
+    "Cercozoa",
+    "Apusozoa"
 ]
